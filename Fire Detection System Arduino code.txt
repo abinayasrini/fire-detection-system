@@ -1,0 +1,67 @@
+#include <SoftwareSerial.h>
+
+// Define the pin for the temperature sensor and the threshold temperature
+const int tempPin = A0;
+const int thresholdTemp = 60; // adjust to your desired temperature threshold
+
+// Define the pin for the relay to turn off the mains
+const int relayPin = 2;
+
+// Define the phone number to send the SMS alert to
+String phoneNumber = "+1234567890"; // replace with your phone number
+
+// Define the GSM module serial communication pins
+SoftwareSerial gsmSerial(7, 8); // RX, TX
+
+void setup() {
+  // Initialize the pins and the serial communication
+  pinMode(tempPin, INPUT);
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, HIGH); // turn off the mains initially
+  Serial.begin(9600);
+  gsmSerial.begin(9600);
+  delay(1000);
+
+  // Test the GSM module by sending an AT command
+  gsmSerial.println("AT");
+  delay(1000);
+  if (gsmSerial.available()) {
+    Serial.write(gsmSerial.read());
+  }
+}
+
+void loop() {
+  // Read the value of the temperature sensor and convert to Celsius
+  int sensorValue = analogRead(tempPin);
+  float voltage = sensorValue * (5.0 / 1023.0);
+  float temperature = (voltage - 0.5) * 100;
+
+  // Check if the temperature is above the threshold
+  if (temperature >= thresholdTemp) {
+    // Fire detected
+    digitalWrite(relayPin, LOW); // turn off the mains
+    sendSMS();
+  } else {
+    // No fire detected
+    digitalWrite(relayPin, HIGH); // turn on the mains
+  }
+
+  // Print the temperature value to the serial monitor
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" C");
+
+  delay(5000); // delay for 5 seconds before checking again
+}
+
+void sendSMS() {
+  // Send an SMS message to the predefined phone number
+  gsmSerial.println("AT+CMGF=1"); // set the SMS mode to text
+  delay(1000);
+  gsmSerial.println("AT+CMGS=\"" + phoneNumber + "\""); // set the phone number
+  delay(1000);
+  gsmSerial.println("Fire detected! Mains turned off."); // set the message text
+  delay(1000);
+  gsmSerial.println((char)26); // send the message
+  delay(1000);
+}
